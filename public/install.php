@@ -140,7 +140,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $requirements = checkRequirements();
 
                 // Check if frontend is already built
-                $frontendBuilt = file_exists(BASE_PATH . '/public/dist/manifest.json') &&
+                $frontendBuilt = file_exists(BASE_PATH . '/public/dist/.vite/manifest.json') &&
                                  is_dir(BASE_PATH . '/public/dist/assets');
 
                 echo json_encode([
