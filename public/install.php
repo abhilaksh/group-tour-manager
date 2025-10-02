@@ -178,6 +178,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode(['success' => $success]);
             exit;
 
+        case 'cleanup':
+            $output = [];
+            $commands = [
+                'rm -rf vendor',
+                'rm -rf client/node_modules',
+                'rm -rf bootstrap/cache/*.php',
+                'rm -rf storage/framework/cache/data/*',
+                'rm -rf storage/framework/sessions/*',
+                'rm -rf storage/framework/views/*',
+            ];
+
+            foreach ($commands as $command) {
+                runCommand($command, $output);
+            }
+
+            echo json_encode(['success' => true, 'output' => implode("\n", $output)]);
+            exit;
+
         case 'install_backend':
             $output = [];
             $composer = getComposerCommand();
@@ -695,6 +713,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <label for="run_seed" style="margin: 0;">Seed database with sample data</label>
                 </div>
 
+                <div class="checkbox-group">
+                    <input type="checkbox" id="skip_frontend">
+                    <label for="skip_frontend" style="margin: 0;">Skip frontend build (use pre-built files)</label>
+                </div>
+
                 <div class="actions">
                     <button class="btn btn-secondary" onclick="goToStep(2)" id="btn-back-3">Back</button>
                     <button class="btn btn-primary" id="btn-install">Start Installation</button>
@@ -922,12 +945,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             backBtn.disabled = true;
             outputDiv.classList.add('show');
 
-            const steps = [
+            let steps = [
+                { action: 'cleanup', label: 'Cleaning up previous installation attempts' },
                 { action: 'install_backend', label: 'Installing backend dependencies' },
                 { action: 'run_migrations', label: 'Running database migrations' },
                 { action: 'install_frontend', label: 'Building frontend' },
                 { action: 'finalize', label: 'Finalizing installation' }
             ];
+
+            // Skip frontend build if checkbox is checked
+            if (document.getElementById('skip_frontend').checked) {
+                steps = steps.filter(s => s.action !== 'install_frontend');
+            }
 
             for (const step of steps) {
                 statusDiv.innerHTML = `<div class="alert alert-success"><span class="spinner"></span> ${step.label}...</div>`;
