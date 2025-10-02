@@ -24,23 +24,32 @@ function runCommand($command, &$output = null) {
     return $returnCode === 0;
 }
 
-function installComposer() {
+function installComposer(&$output = null) {
     $output = [];
 
     // Download Composer installer
-    runCommand('php -r "copy(\'https://getcomposer.org/installer\', \'composer-setup.php\');"', $output);
+    $success1 = runCommand('php -r "copy(\'https://getcomposer.org/installer\', \'composer-setup.php\');"', $output);
+    $output[] = "Download installer: " . ($success1 ? 'SUCCESS' : 'FAILED');
+
+    if (!$success1 || !file_exists(BASE_PATH . '/composer-setup.php')) {
+        $output[] = "Composer setup file not created";
+        return false;
+    }
 
     // Run Composer installer
-    runCommand('php composer-setup.php --quiet', $output);
+    $success2 = runCommand('php composer-setup.php --install-dir=' . BASE_PATH . ' --filename=composer.phar', $output);
+    $output[] = "Run installer: " . ($success2 ? 'SUCCESS' : 'FAILED');
 
     // Clean up installer
     runCommand('rm composer-setup.php', $output);
 
-    // Move to base path for easy access
+    // Check if composer.phar exists
     if (file_exists(BASE_PATH . '/composer.phar')) {
+        $output[] = "composer.phar created successfully at " . BASE_PATH . '/composer.phar';
         return true;
     }
 
+    $output[] = "composer.phar NOT found at " . BASE_PATH . '/composer.phar';
     return false;
 }
 
@@ -123,8 +132,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 exit;
 
             case 'install_composer':
-                $success = installComposer();
-                echo json_encode(['success' => $success]);
+                $output = [];
+                $success = installComposer($output);
+                echo json_encode(['success' => $success, 'output' => implode("\n", $output)]);
                 exit;
 
         case 'test_database':
@@ -784,16 +794,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 body: 'action=install_composer'
             });
 
-            const data = await response.json();
+            const text = await response.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error('Invalid JSON:', text);
+                btn.disabled = false;
+                btn.textContent = 'Install Failed - Check Console';
+                alert('Error: ' + text.substring(0, 500));
+                return;
+            }
 
             if (data.success) {
                 btn.innerHTML = '✓ Installed';
+                if (data.output) {
+                    console.log('Composer install output:', data.output);
+                }
                 setTimeout(() => {
                     checkRequirements();
                 }, 1500);
             } else {
                 btn.disabled = false;
                 btn.textContent = 'Install Failed - Try Again';
+                if (data.output) {
+                    alert('Installation failed:\n\n' + data.output);
+                }
+                console.error('Install failed:', data);
             }
         }
 
