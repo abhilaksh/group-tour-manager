@@ -9,7 +9,9 @@
       "Bash(npm install)",
       "Bash(npm run build:*)",
       "Bash(cat:*)",
-      "Bash(git ls-tree:*)"
+      "Bash(git ls-tree:*)",
+      "Bash(php artisan key:generate:*)",
+      "Bash(php:*)"
     ],
     "deny": [],
     "ask": []

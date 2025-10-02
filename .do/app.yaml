@@ -17,15 +17,12 @@ services:
       npm run build
       cd ..
 
-      # Laravel optimizations
+    run_command: |
+      php artisan migrate --force
       php artisan config:cache
       php artisan route:cache
       php artisan view:cache
-      php artisan optimize
-
-    run_command: |
-      php artisan migrate --force
-      heroku-php-apache2 public/
+      php artisan serve --host=0.0.0.0 --port=8080
 
     envs:
       - key: APP_NAME
@@ -69,6 +66,14 @@ services:
         value: "120"
 
     http_port: 8080
+
+    health_check:
+      http_path: /health
+      initial_delay_seconds: 30
+      period_seconds: 10
+      timeout_seconds: 5
+      success_threshold: 1
+      failure_threshold: 3
 
     instance_count: 1
     instance_size_slug: basic-xxs
