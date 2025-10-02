@@ -285,6 +285,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             echo json_encode(['success' => true, 'output' => implode("\n", $output)]);
             exit;
 
+        case 'verify':
+            $checks = [
+                'vendor_exists' => is_dir(BASE_PATH . '/vendor'),
+                'env_exists' => file_exists(BASE_PATH . '/.env'),
+                'env_has_key' => false,
+                'storage_writable' => is_writable(BASE_PATH . '/storage'),
+                'bootstrap_writable' => is_writable(BASE_PATH . '/bootstrap/cache'),
+                'frontend_built' => file_exists(BASE_PATH . '/public/dist/.vite/manifest.json'),
+            ];
+
+            // Check if APP_KEY is set
+            if ($checks['env_exists']) {
+                $envContent = file_get_contents(BASE_PATH . '/.env');
+                $checks['env_has_key'] = strpos($envContent, 'APP_KEY=base64:') !== false;
+            }
+
+            $allGood = !in_array(false, $checks, true);
+
+            echo json_encode([
+                'success' => true,
+                'checks' => $checks,
+                'allGood' => $allGood
+            ]);
+            exit;
+
         default:
             echo json_encode(['success' => false, 'error' => 'Unknown action']);
             exit;
@@ -755,9 +780,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <strong>Success!</strong> Your application is ready to use.
                 </div>
 
+                <div id="post-install-check" style="margin-top: 24px;">
+                    <h3 style="font-size: 18px; margin-bottom: 16px;">Verifying Installation...</h3>
+                    <div id="verification-status"></div>
+                </div>
+
                 <h3 style="margin-top: 32px; margin-bottom: 16px; font-size: 18px;">Next Steps:</h3>
                 <ul style="margin-left: 20px; line-height: 2; color: #374151;">
-                    <li>Delete or secure the <code>install.php</code> file</li>
+                    <li>The installer will be automatically disabled</li>
                     <li>Configure your GitHub webhook for automatic deployments</li>
                     <li>Set up queue workers in RunCloud (optional)</li>
                     <li>Visit your application and start managing tours!</li>
@@ -765,7 +795,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
                 <div class="actions" style="margin-top: 40px;">
                     <div></div>
-                    <a href="/" class="btn btn-primary" style="text-decoration: none; display: inline-block;">Launch Application</a>
+                    <button class="btn btn-primary" id="btn-verify" onclick="verifyInstallation()">Verify Installation</button>
+                    <a href="/" class="btn btn-primary" style="text-decoration: none; display: inline-block; margin-left: 12px;" id="btn-launch">Launch Application</a>
                 </div>
             </div>
         </div>
@@ -1050,8 +1081,60 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
 
             statusDiv.innerHTML = '<div class="alert alert-success">Installation completed successfully!</div>';
-            setTimeout(() => goToStep(4), 1500);
+            setTimeout(() => {
+                goToStep(4);
+                verifyInstallation();
+            }, 1500);
         });
+
+        async function verifyInstallation() {
+            const statusDiv = document.getElementById('verification-status');
+            const launchBtn = document.getElementById('btn-launch');
+            const verifyBtn = document.getElementById('btn-verify');
+
+            verifyBtn.disabled = true;
+            verifyBtn.innerHTML = '<span class="spinner"></span> Checking...';
+
+            statusDiv.innerHTML = '<div class="alert alert-success"><span class="spinner"></span> Running verification checks...</div>';
+
+            const response = await fetch('install.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'action=verify'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                const checks = data.checks;
+                const checkLabels = {
+                    'vendor_exists': 'Backend dependencies installed',
+                    'env_exists': 'Environment file created',
+                    'env_has_key': 'Application key generated',
+                    'storage_writable': 'Storage directory writable',
+                    'bootstrap_writable': 'Bootstrap cache writable',
+                    'frontend_built': 'Frontend assets built'
+                };
+
+                let html = '<ul class="requirements-list" style="margin-top: 16px;">';
+                for (const [key, value] of Object.entries(checks)) {
+                    const label = checkLabels[key] || key;
+                    html += `<li class="requirement ${value ? 'pass' : 'fail'}">${label}</li>`;
+                }
+                html += '</ul>';
+
+                if (data.allGood) {
+                    statusDiv.innerHTML = '<div class="alert alert-success"><strong>✓ All checks passed!</strong> Your application is ready.</div>' + html;
+                    launchBtn.style.display = 'inline-block';
+                } else {
+                    statusDiv.innerHTML = '<div class="alert alert-error"><strong>⚠ Some issues detected.</strong> Please review the checks below.</div>' + html;
+                    launchBtn.style.display = 'none';
+                }
+            }
+
+            verifyBtn.disabled = false;
+            verifyBtn.textContent = 'Re-verify';
+        }
     </script>
 </body>
 </html>
