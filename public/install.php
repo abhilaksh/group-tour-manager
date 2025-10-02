@@ -202,6 +202,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 'rm -rf storage/framework/cache/data/*',
                 'rm -rf storage/framework/sessions/*',
                 'rm -rf storage/framework/views/*',
+                'rm -rf public/dist/*',  // Clean dist to allow git pull
             ];
 
             // Only clean node_modules if we're going to rebuild frontend
@@ -212,6 +213,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             foreach ($commands as $command) {
                 runCommand($command, $output);
             }
+
+            // Pull latest from git to get fresh files
+            runCommand('git reset --hard HEAD', $output);
+            runCommand('git pull origin master', $output);
 
             echo json_encode(['success' => true, 'output' => implode("\n", $output)]);
             exit;
