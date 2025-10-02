@@ -214,7 +214,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $output = [];
             $commands = [
                 'cd client && npm install',
-                'cd client && NODE_OPTIONS="--max-old-space-size=4096" npm run build',
+                'cd client && NODE_OPTIONS="--max-old-space-size=4096 --no-experimental-wasm-modules" npm run build',
             ];
 
             foreach ($commands as $command) {
