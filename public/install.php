@@ -27,6 +27,14 @@ function runCommand($command, &$output = null) {
 function installComposer(&$output = null) {
     $output = [];
 
+    // Set HOME environment variable if not set
+    $homeDir = BASE_PATH . '/.composer_home';
+    if (!is_dir($homeDir)) {
+        mkdir($homeDir, 0755, true);
+    }
+    putenv('HOME=' . $homeDir);
+    putenv('COMPOSER_HOME=' . $homeDir);
+
     // Download Composer installer
     $success1 = runCommand('php -r "copy(\'https://getcomposer.org/installer\', \'composer-setup.php\');"', $output);
     $output[] = "Download installer: " . ($success1 ? 'SUCCESS' : 'FAILED');
@@ -36,8 +44,8 @@ function installComposer(&$output = null) {
         return false;
     }
 
-    // Run Composer installer
-    $success2 = runCommand('php composer-setup.php --install-dir=' . BASE_PATH . ' --filename=composer.phar', $output);
+    // Run Composer installer with HOME environment variable set
+    $success2 = runCommand('HOME=' . $homeDir . ' COMPOSER_HOME=' . $homeDir . ' php composer-setup.php --install-dir=' . BASE_PATH . ' --filename=composer.phar', $output);
     $output[] = "Run installer: " . ($success2 ? 'SUCCESS' : 'FAILED');
 
     // Clean up installer
