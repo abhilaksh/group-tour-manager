@@ -1,0 +1,35 @@
+spec:
+  name: group-tour-manager
+  region: nyc
+
+  services:
+  - name: web
+    environment_slug: php
+    github:
+      repo: abhilaksh/group-tour-manager
+      branch: master
+      deploy_on_push: true
+
+    build_command: |
+      composer install --no-dev --optimize-autoloader
+      cd client && npm ci && npm run build && cd ..
+
+    run_command: php artisan serve --host=0.0.0.0 --port=8080
+
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+
+    envs:
+    - key: APP_KEY
+      scope: RUN_AND_BUILD_TIME
+      type: SECRET
+    - key: APP_ENV
+      value: production
+    - key: APP_DEBUG
+      value: "false"
+
+  databases:
+  - name: db
+    engine: MYSQL
+    production: false

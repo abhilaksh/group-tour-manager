@@ -1,0 +1,84 @@
+name: group-tour-manager
+
+services:
+  - name: web
+    github:
+      repo: abhilaksh/group-tour-manager
+      branch: master
+      deploy_on_push: true
+
+    build_command: |
+      # Install PHP dependencies
+      composer install --no-dev --optimize-autoloader --no-interaction
+
+      # Install Node dependencies and build frontend
+      cd client
+      npm ci
+      npm run build
+      cd ..
+
+      # Laravel optimizations
+      php artisan config:cache
+      php artisan route:cache
+      php artisan view:cache
+      php artisan optimize
+
+    run_command: |
+      php artisan migrate --force
+      heroku-php-apache2 public/
+
+    envs:
+      - key: APP_NAME
+        value: "Group Tour Manager"
+      - key: APP_ENV
+        value: production
+      - key: APP_DEBUG
+        value: "false"
+      - key: APP_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: DB_CONNECTION
+        value: mysql
+      - key: DB_HOST
+        scope: RUN_TIME
+        value: ${db.HOSTNAME}
+      - key: DB_PORT
+        scope: RUN_TIME
+        value: ${db.PORT}
+      - key: DB_DATABASE
+        scope: RUN_TIME
+        value: ${db.DATABASE}
+      - key: DB_USERNAME
+        scope: RUN_TIME
+        value: ${db.USERNAME}
+      - key: DB_PASSWORD
+        scope: RUN_TIME
+        type: SECRET
+        value: ${db.PASSWORD}
+      - key: BROADCAST_DRIVER
+        value: log
+      - key: CACHE_DRIVER
+        value: file
+      - key: FILESYSTEM_DISK
+        value: local
+      - key: QUEUE_CONNECTION
+        value: sync
+      - key: SESSION_DRIVER
+        value: file
+      - key: SESSION_LIFETIME
+        value: "120"
+
+    http_port: 8080
+
+    instance_count: 1
+    instance_size_slug: basic-xxs
+
+    routes:
+      - path: /
+
+databases:
+  - name: db
+    engine: MYSQL
+    version: "8"
+    production: false
+    cluster_name: group-tour-manager-db
