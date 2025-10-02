@@ -5,7 +5,8 @@
  */
 
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', 0); // Don't display errors to avoid breaking JSON
+ini_set('log_errors', 1);
 
 session_start();
 
@@ -236,7 +237,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ]);
+        exit;
+    } catch (Error $e) {
+        echo json_encode([
+            'success' => false,
+            'error' => $e->getMessage(),
+            'trace' => $e->getTraceAsString(),
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ]);
         exit;
     }
 }
@@ -708,7 +724,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 body: 'action=check_requirements'
             });
 
-            const data = await response.json();
+            const text = await response.text();
+            let data;
+            try {
+                data = JSON.parse(text);
+            } catch (e) {
+                console.error('Invalid JSON response:', text);
+                document.getElementById('requirements-list').innerHTML = `
+                    <div class="alert alert-error">
+                        <strong>Error:</strong> Server returned invalid response.<br>
+                        <pre style="margin-top: 10px; font-size: 11px; max-height: 200px; overflow: auto;">${text.substring(0, 1000)}</pre>
+                    </div>
+                `;
+                return;
+            }
             const list = document.getElementById('requirements-list');
             list.innerHTML = '';
 
