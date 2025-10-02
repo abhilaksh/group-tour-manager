@@ -4,6 +4,9 @@
  * A beautiful, step-by-step installation wizard
  */
 
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
 session_start();
 
 // Security: Disable after installation
@@ -23,10 +26,10 @@ function runCommand($command, &$output = null) {
 function checkRequirements() {
     $requirements = [
         'PHP Version >= 8.3' => version_compare(PHP_VERSION, '8.3.0', '>='),
-        'Composer Installed' => !empty(shell_exec('which composer')),
-        'Node.js Installed' => !empty(shell_exec('which node')),
-        'NPM Installed' => !empty(shell_exec('which npm')),
-        'Git Installed' => !empty(shell_exec('which git')),
+        'Composer Installed' => !empty(@shell_exec('which composer 2>/dev/null')),
+        'Node.js Installed' => !empty(@shell_exec('which node 2>/dev/null')),
+        'NPM Installed' => !empty(@shell_exec('which npm 2>/dev/null')),
+        'Git Installed' => !empty(@shell_exec('which git 2>/dev/null')),
         'PHP Extension: PDO' => extension_loaded('pdo'),
         'PHP Extension: MySQL' => extension_loaded('pdo_mysql'),
         'PHP Extension: OpenSSL' => extension_loaded('openssl'),
@@ -35,8 +38,8 @@ function checkRequirements() {
         'PHP Extension: XML' => extension_loaded('xml'),
         'PHP Extension: Ctype' => extension_loaded('ctype'),
         'PHP Extension: JSON' => extension_loaded('json'),
-        'Writable: storage/' => is_writable(BASE_PATH . '/storage'),
-        'Writable: bootstrap/cache/' => is_writable(BASE_PATH . '/bootstrap/cache'),
+        'Writable: storage/' => @is_writable(BASE_PATH . '/storage'),
+        'Writable: bootstrap/cache/' => @is_writable(BASE_PATH . '/bootstrap/cache'),
     ];
 
     return $requirements;
@@ -56,10 +59,12 @@ function testDatabaseConnection($host, $port, $database, $username, $password) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     header('Content-Type: application/json');
 
-    switch ($_POST['action']) {
-        case 'check_requirements':
-            echo json_encode(['success' => true, 'requirements' => checkRequirements()]);
-            exit;
+    try {
+        switch ($_POST['action']) {
+            case 'check_requirements':
+                $requirements = checkRequirements();
+                echo json_encode(['success' => true, 'requirements' => $requirements]);
+                exit;
 
         case 'test_database':
             $host = $_POST['db_host'] ?? '127.0.0.1';
@@ -164,6 +169,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             echo json_encode(['success' => true, 'output' => implode("\n", $output)]);
             exit;
+
+        default:
+            echo json_encode(['success' => false, 'error' => 'Unknown action']);
+            exit;
+        }
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage(), 'trace' => $e->getTraceAsString()]);
+        exit;
     }
 }
 
