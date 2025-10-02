@@ -25,36 +25,64 @@ function runCommand($command, &$output = null) {
 
 function installComposer() {
     $output = [];
-    $commands = [
-        'curl -sS https://getcomposer.org/installer | php',
-        'mv composer.phar /usr/local/bin/composer || mv composer.phar ' . BASE_PATH . '/composer.phar',
-    ];
 
-    foreach ($commands as $command) {
-        runCommand($command, $output);
+    // Download Composer installer
+    runCommand('php -r "copy(\'https://getcomposer.org/installer\', \'composer-setup.php\');"', $output);
+
+    // Run Composer installer
+    runCommand('php composer-setup.php --quiet', $output);
+
+    // Clean up installer
+    runCommand('rm composer-setup.php', $output);
+
+    // Move to base path for easy access
+    if (file_exists(BASE_PATH . '/composer.phar')) {
+        return true;
     }
 
-    return !empty(shell_exec('which composer 2>&1')) || file_exists(BASE_PATH . '/composer.phar');
+    return false;
 }
 
 function getComposerCommand() {
-    if (!empty(shell_exec('which composer 2>&1'))) {
+    // Check if composer is in PATH
+    $which = trim(shell_exec('which composer 2>&1'));
+    if (!empty($which) && strpos($which, 'not found') === false) {
         return 'composer';
-    } elseif (file_exists(BASE_PATH . '/composer.phar')) {
+    }
+
+    // Check if we have composer.phar locally
+    if (file_exists(BASE_PATH . '/composer.phar')) {
         return 'php ' . BASE_PATH . '/composer.phar';
     }
+
+    // Default fallback
     return 'composer';
 }
 
 function checkRequirements() {
-    $composerInstalled = !empty(shell_exec('which composer 2>&1')) || file_exists(BASE_PATH . '/composer.phar');
+    // Check for Composer in PATH or as local .phar
+    $composerWhich = trim(shell_exec('which composer 2>&1'));
+    $composerInstalled = (strpos($composerWhich, 'not found') === false && !empty($composerWhich))
+                         || file_exists(BASE_PATH . '/composer.phar');
+
+    // Check Node.js
+    $nodeWhich = trim(shell_exec('which node 2>&1'));
+    $nodeInstalled = strpos($nodeWhich, 'not found') === false && !empty($nodeWhich);
+
+    // Check NPM
+    $npmWhich = trim(shell_exec('which npm 2>&1'));
+    $npmInstalled = strpos($npmWhich, 'not found') === false && !empty($npmWhich);
+
+    // Check Git
+    $gitWhich = trim(shell_exec('which git 2>&1'));
+    $gitInstalled = strpos($gitWhich, 'not found') === false && !empty($gitWhich);
 
     $requirements = [
         'PHP Version >= 8.3' => version_compare(PHP_VERSION, '8.3.0', '>='),
         'Composer' => $composerInstalled,
-        'Node.js' => !empty(shell_exec('which node 2>&1')),
-        'NPM' => !empty(shell_exec('which npm 2>&1')),
-        'Git' => !empty(shell_exec('which git 2>&1')),
+        'Node.js' => $nodeInstalled,
+        'NPM' => $npmInstalled,
+        'Git' => $gitInstalled,
         'PHP Extension: PDO' => extension_loaded('pdo'),
         'PHP Extension: MySQL' => extension_loaded('pdo_mysql'),
         'PHP Extension: OpenSSL' => extension_loaded('openssl'),
