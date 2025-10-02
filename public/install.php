@@ -796,13 +796,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
             const text = await response.text();
             let data;
+            const missingToolsDiv = document.getElementById('missing-tools');
+
             try {
                 data = JSON.parse(text);
             } catch (e) {
                 console.error('Invalid JSON:', text);
                 btn.disabled = false;
-                btn.textContent = 'Install Failed - Check Console';
-                alert('Error: ' + text.substring(0, 500));
+                btn.textContent = 'Install Failed - Try Again';
+                missingToolsDiv.innerHTML = `
+                    <div class="alert alert-error" style="margin-top: 20px;">
+                        <strong>Error:</strong> Server returned invalid response.<br>
+                        <pre style="margin-top: 10px; font-size: 11px; max-height: 200px; overflow: auto; background: #fff; padding: 10px; border-radius: 4px;">${text.substring(0, 1000)}</pre>
+                        <button class="btn btn-primary" onclick="installComposer()" style="margin-top: 12px; padding: 8px 16px;">
+                            Try Again
+                        </button>
+                    </div>
+                `;
                 return;
             }
 
@@ -817,9 +827,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             } else {
                 btn.disabled = false;
                 btn.textContent = 'Install Failed - Try Again';
-                if (data.output) {
-                    alert('Installation failed:\n\n' + data.output);
-                }
+                const errorMessage = data.output || data.error || 'Unknown error occurred';
+                missingToolsDiv.innerHTML = `
+                    <div class="alert alert-error" style="margin-top: 20px;">
+                        <strong>Installation failed:</strong><br>
+                        <pre style="margin-top: 10px; font-size: 11px; max-height: 200px; overflow: auto; background: #fff; padding: 10px; border-radius: 4px;">${errorMessage}</pre>
+                        <button class="btn btn-primary" onclick="installComposer()" style="margin-top: 12px; padding: 8px 16px;">
+                            Try Again
+                        </button>
+                    </div>
+                `;
                 console.error('Install failed:', data);
             }
         }
