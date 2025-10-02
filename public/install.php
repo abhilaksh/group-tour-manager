@@ -10,9 +10,14 @@ ini_set('log_errors', 1);
 
 session_start();
 
-// Security: Disable after installation
+// Security: Disable after installation and redirect to main site
 if (file_exists(__DIR__ . '/../.installed')) {
-    die('Installation has already been completed. Delete the .installed file to run the installer again.');
+    if (php_sapi_name() === 'cli') {
+        die('Installation has already been completed. Delete the .installed file to run the installer again.');
+    }
+    // Redirect to homepage if accessed via web
+    header('Location: /');
+    exit;
 }
 
 define('BASE_PATH', dirname(__DIR__));
@@ -133,7 +138,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         switch ($_POST['action']) {
             case 'check_requirements':
                 $requirements = checkRequirements();
-                echo json_encode(['success' => true, 'requirements' => $requirements]);
+
+                // Check if frontend is already built
+                $frontendBuilt = file_exists(BASE_PATH . '/public/dist/manifest.json') &&
+                                 is_dir(BASE_PATH . '/public/dist/assets');
+
+                echo json_encode([
+                    'success' => true,
+                    'requirements' => $requirements,
+                    'frontendBuilt' => $frontendBuilt
+                ]);
                 exit;
 
             case 'install_composer':
@@ -180,14 +194,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         case 'cleanup':
             $output = [];
+            $skipFrontend = isset($_POST['skip_frontend']) && $_POST['skip_frontend'] === 'true';
+
             $commands = [
                 'rm -rf vendor',
-                'rm -rf client/node_modules',
                 'rm -rf bootstrap/cache/*.php',
                 'rm -rf storage/framework/cache/data/*',
                 'rm -rf storage/framework/sessions/*',
                 'rm -rf storage/framework/views/*',
             ];
+
+            // Only clean node_modules if we're going to rebuild frontend
+            if (!$skipFrontend) {
+                $commands[] = 'rm -rf client/node_modules';
+            }
 
             foreach ($commands as $command) {
                 runCommand($command, $output);
@@ -705,6 +725,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 <h2>Installation Progress</h2>
                 <p>Installing your application. This may take a few minutes...</p>
 
+                <div id="frontend-build-notice"></div>
+
                 <div id="install-status"></div>
                 <div class="output" id="install-output"></div>
 
@@ -713,7 +735,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <label for="run_seed" style="margin: 0;">Seed database with sample data</label>
                 </div>
 
-                <div class="checkbox-group">
+                <div class="checkbox-group" id="skip-frontend-group">
                     <input type="checkbox" id="skip_frontend">
                     <label for="skip_frontend" style="margin: 0;">Skip frontend build (use pre-built files)</label>
                 </div>
@@ -808,6 +830,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 missingToolsDiv.innerHTML = '';
             }
 
+            // Store frontend build status globally
+            window.frontendBuilt = data.frontendBuilt || false;
+
             document.getElementById('btn-next-1').disabled = !allPass;
         }
 
@@ -881,6 +906,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     progressStep.classList.add('complete');
                 } else if (i === step) {
                     progressStep.classList.add('active');
+                }
+            }
+
+            // Update frontend build notice when entering step 3
+            if (step === 3) {
+                const noticeDiv = document.getElementById('frontend-build-notice');
+                const skipCheckbox = document.getElementById('skip_frontend');
+                const skipGroup = document.getElementById('skip-frontend-group');
+
+                if (window.frontendBuilt) {
+                    noticeDiv.innerHTML = `
+                        <div class="alert alert-success" style="margin-bottom: 20px;">
+                            <strong>✓ Frontend files detected!</strong> Pre-built frontend files were found.
+                            The frontend build step will be automatically skipped.
+                        </div>
+                    `;
+                    skipCheckbox.checked = true;
+                    skipCheckbox.disabled = true;
+                    skipGroup.style.display = 'none';
+                } else {
+                    noticeDiv.innerHTML = `
+                        <div class="alert alert-error" style="margin-bottom: 20px;">
+                            <strong>⚠ No pre-built frontend files found.</strong>
+                            The installer will attempt to build the frontend. This requires sufficient server memory.
+                            If the build fails, you can build locally and deploy the files manually.
+                        </div>
+                    `;
+                    skipCheckbox.checked = false;
+                    skipCheckbox.disabled = false;
+                    skipGroup.style.display = 'flex';
                 }
             }
 
@@ -958,11 +1013,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 steps = steps.filter(s => s.action !== 'install_frontend');
             }
 
+            const skipFrontend = document.getElementById('skip_frontend').checked;
+
             for (const step of steps) {
                 statusDiv.innerHTML = `<div class="alert alert-success"><span class="spinner"></span> ${step.label}...</div>`;
 
                 const formData = new FormData();
                 formData.append('action', step.action);
+
+                if (step.action === 'cleanup') {
+                    formData.append('skip_frontend', skipFrontend);
+                }
+
                 if (step.action === 'run_migrations') {
                     formData.append('seed', document.getElementById('run_seed').checked);
                 }
