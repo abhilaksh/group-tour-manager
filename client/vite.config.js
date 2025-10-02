@@ -8,6 +8,7 @@ export default defineConfig({
     outDir: '../public/dist',
     emptyOutDir: true,
     manifest: true,
+    minify: 'esbuild', // Use esbuild instead of terser to avoid WASM memory issues
     rollupOptions: {
       input: '/src/Main.jsx',
     },
