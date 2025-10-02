@@ -23,15 +23,31 @@ echo "<h2>Writable?</h2>";
 echo "<p>Storage: " . (is_writable($basePath . '/storage') ? 'YES' : 'NO') . "</p>";
 echo "<p>Bootstrap/cache: " . (is_writable($basePath . '/bootstrap/cache') ? 'YES' : 'NO') . "</p>";
 
-echo "<h2>Composer</h2>";
-$composer = shell_exec('which composer 2>&1');
-echo "<p>" . htmlspecialchars($composer) . "</p>";
+echo "<h2>Composer Location</h2>";
+$composerWhich = shell_exec('which composer 2>&1');
+echo "<p>which composer: " . htmlspecialchars($composerWhich ? $composerWhich : 'NOT FOUND') . "</p>";
 
-echo "<h2>Node</h2>";
-$node = shell_exec('which node 2>&1');
-echo "<p>" . htmlspecialchars($node) . "</p>";
+$composerVersion = shell_exec('composer --version 2>&1');
+echo "<p>composer --version: " . htmlspecialchars($composerVersion ? $composerVersion : 'NOT FOUND') . "</p>";
 
-echo "<h2>Test JSON Response</h2>";
-header('Content-Type: application/json');
-echo json_encode(['test' => 'success', 'php_version' => PHP_VERSION]);
+$composerPath = shell_exec('/usr/local/bin/composer --version 2>&1');
+echo "<p>/usr/local/bin/composer: " . htmlspecialchars($composerPath ? $composerPath : 'NOT FOUND') . "</p>";
+
+echo "<h2>Node Location</h2>";
+$nodeWhich = shell_exec('which node 2>&1');
+echo "<p>which node: " . htmlspecialchars($nodeWhich ? $nodeWhich : 'NOT FOUND') . "</p>";
+
+$nodeVersion = shell_exec('node --version 2>&1');
+echo "<p>node --version: " . htmlspecialchars($nodeVersion ? $nodeVersion : 'NOT FOUND') . "</p>";
+
+echo "<h2>NPM Location</h2>";
+$npmWhich = shell_exec('which npm 2>&1');
+echo "<p>which npm: " . htmlspecialchars($npmWhich ? $npmWhich : 'NOT FOUND') . "</p>";
+
+$npmVersion = shell_exec('npm --version 2>&1');
+echo "<p>npm --version: " . htmlspecialchars($npmVersion ? $npmVersion : 'NOT FOUND') . "</p>";
+
+echo "<h2>PATH</h2>";
+$path = shell_exec('echo $PATH 2>&1');
+echo "<p>" . htmlspecialchars($path) . "</p>";
 ?>
