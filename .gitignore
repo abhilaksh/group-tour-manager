@@ -1,0 +1,31 @@
+Laravel
+/vendor/
+Homestead.yaml
+Homestead.json
+/.homestead
+/public/hot
+/public/storage
+/public/build
+/storage/*.key
+/.env
+/.env.backup
+/.phpunit.result.cache
+npm-debug.log
+yarn-error.log
+
+IDE files
+.idea/
+.vscode/
+
+Node / React
+/client/node_modules
+/client/dist
+/client/.env.local
+/client/.env..local
+/client/npm-debug.log
+/client/yarn-debug.log*
+/client/yarn-error.log*
+
+OS files
+.DS_Store
+Thumbs.db

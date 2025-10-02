@@ -1,0 +1,1 @@
+# Routes for tenants (provided by archtechx/tenancy)
