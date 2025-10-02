@@ -23,13 +23,38 @@ function runCommand($command, &$output = null) {
     return $returnCode === 0;
 }
 
+function installComposer() {
+    $output = [];
+    $commands = [
+        'curl -sS https://getcomposer.org/installer | php',
+        'mv composer.phar /usr/local/bin/composer || mv composer.phar ' . BASE_PATH . '/composer.phar',
+    ];
+
+    foreach ($commands as $command) {
+        runCommand($command, $output);
+    }
+
+    return !empty(shell_exec('which composer 2>&1')) || file_exists(BASE_PATH . '/composer.phar');
+}
+
+function getComposerCommand() {
+    if (!empty(shell_exec('which composer 2>&1'))) {
+        return 'composer';
+    } elseif (file_exists(BASE_PATH . '/composer.phar')) {
+        return 'php ' . BASE_PATH . '/composer.phar';
+    }
+    return 'composer';
+}
+
 function checkRequirements() {
+    $composerInstalled = !empty(shell_exec('which composer 2>&1')) || file_exists(BASE_PATH . '/composer.phar');
+
     $requirements = [
         'PHP Version >= 8.3' => version_compare(PHP_VERSION, '8.3.0', '>='),
-        'Composer Installed' => !empty(shell_exec('which composer 2>&1')),
-        'Node.js Installed' => !empty(shell_exec('which node 2>&1')),
-        'NPM Installed' => !empty(shell_exec('which npm 2>&1')),
-        'Git Installed' => !empty(shell_exec('which git 2>&1')),
+        'Composer' => $composerInstalled,
+        'Node.js' => !empty(shell_exec('which node 2>&1')),
+        'NPM' => !empty(shell_exec('which npm 2>&1')),
+        'Git' => !empty(shell_exec('which git 2>&1')),
         'PHP Extension: PDO' => extension_loaded('pdo'),
         'PHP Extension: MySQL' => extension_loaded('pdo_mysql'),
         'PHP Extension: OpenSSL' => extension_loaded('openssl'),
@@ -66,6 +91,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             case 'check_requirements':
                 $requirements = checkRequirements();
                 echo json_encode(['success' => true, 'requirements' => $requirements]);
+                exit;
+
+            case 'install_composer':
+                $success = installComposer();
+                echo json_encode(['success' => $success]);
                 exit;
 
         case 'test_database':
@@ -106,8 +136,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 
         case 'install_backend':
             $output = [];
+            $composer = getComposerCommand();
             $commands = [
-                'composer install --no-dev --optimize-autoloader --no-interaction',
+                $composer . ' install --no-dev --optimize-autoloader --no-interaction',
                 'php artisan key:generate --force',
                 'php artisan storage:link',
             ];
@@ -534,6 +565,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     <li class="requirement"><span class="spinner"></span> Checking requirements...</li>
                 </ul>
 
+                <div id="missing-tools"></div>
+
                 <div class="actions">
                     <div></div>
                     <button class="btn btn-primary" id="btn-next-1" disabled>Next</button>
@@ -652,16 +685,59 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             list.innerHTML = '';
 
             let allPass = true;
+            let missingComposer = false;
+
             for (const [name, pass] of Object.entries(data.requirements)) {
                 const li = document.createElement('li');
                 li.className = `requirement ${pass ? 'pass' : 'fail'}`;
                 li.textContent = name;
                 list.appendChild(li);
 
-                if (!pass) allPass = false;
+                if (!pass) {
+                    allPass = false;
+                    if (name === 'Composer') missingComposer = true;
+                }
+            }
+
+            const missingToolsDiv = document.getElementById('missing-tools');
+            if (missingComposer) {
+                missingToolsDiv.innerHTML = `
+                    <div class="alert alert-error" style="margin-top: 20px;">
+                        <strong>Composer is not installed.</strong>
+                        <button class="btn btn-primary" onclick="installComposer()" style="margin-left: 12px; padding: 8px 16px;">
+                            Install Composer Now
+                        </button>
+                    </div>
+                `;
+            } else {
+                missingToolsDiv.innerHTML = '';
             }
 
             document.getElementById('btn-next-1').disabled = !allPass;
+        }
+
+        async function installComposer() {
+            const btn = event.target;
+            btn.disabled = true;
+            btn.innerHTML = '<span class="spinner"></span> Installing Composer...';
+
+            const response = await fetch('install.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                body: 'action=install_composer'
+            });
+
+            const data = await response.json();
+
+            if (data.success) {
+                btn.innerHTML = '✓ Installed';
+                setTimeout(() => {
+                    checkRequirements();
+                }, 1500);
+            } else {
+                btn.disabled = false;
+                btn.textContent = 'Install Failed - Try Again';
+            }
         }
 
         function goToStep(step) {
