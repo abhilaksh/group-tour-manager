@@ -24,12 +24,12 @@ function runCommand($command, &$output = null) {
 }
 
 function checkRequirements() {
-    // Check if composer exists by looking for vendor directory
-    $composerExists = file_exists(BASE_PATH . '/vendor/autoload.php');
-
     $requirements = [
         'PHP Version >= 8.3' => version_compare(PHP_VERSION, '8.3.0', '>='),
-        'Composer Dependencies' => $composerExists,
+        'Composer Installed' => !empty(shell_exec('which composer 2>&1')),
+        'Node.js Installed' => !empty(shell_exec('which node 2>&1')),
+        'NPM Installed' => !empty(shell_exec('which npm 2>&1')),
+        'Git Installed' => !empty(shell_exec('which git 2>&1')),
         'PHP Extension: PDO' => extension_loaded('pdo'),
         'PHP Extension: MySQL' => extension_loaded('pdo_mysql'),
         'PHP Extension: OpenSSL' => extension_loaded('openssl'),
@@ -40,8 +40,8 @@ function checkRequirements() {
         'PHP Extension: JSON' => extension_loaded('json'),
         'Directory: storage/' => is_dir(BASE_PATH . '/storage'),
         'Directory: bootstrap/' => is_dir(BASE_PATH . '/bootstrap'),
-        'Writable: storage/' => @is_writable(BASE_PATH . '/storage'),
-        'Writable: bootstrap/cache/' => @is_writable(BASE_PATH . '/bootstrap/cache'),
+        'Writable: storage/' => is_writable(BASE_PATH . '/storage'),
+        'Writable: bootstrap/cache/' => is_writable(BASE_PATH . '/bootstrap/cache'),
     ];
 
     return $requirements;
